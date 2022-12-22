@@ -82,7 +82,7 @@ fn main() {
                 .unwrap_or("");
             if include.is_empty() | include.contains(&file_ext.to_lowercase()) {
                 if verbose {
-                    println!("Extracting: {}", file.filepath.to_str().unwrap_or(""));
+                    println!("Extracting: {} (offset: {})", file.filepath.to_str().unwrap_or(""), file.offset as u64);
                 }
 
                 let mut out_file_path = PathBuf::from(out_dir);
@@ -117,9 +117,9 @@ fn main() {
                     buffer.resize(file.size as usize, 0u8);
                     if let Err(e) = vfs.seek(SeekFrom::Start(file.offset as u64)) {
                         println!(
-                            "Error reading data from {}: {}",
+                            "Error reading data from {}: {} (File offset is {})",
                             fs.filename.to_str().unwrap(),
-                            e
+                            e, file.offset as u64
                         );
                         continue;
                     }

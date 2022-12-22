@@ -6,18 +6,18 @@ use std::iter;
 use std::path::{Path, PathBuf};
 use std::process::exit;
 
-use clap::{crate_authors, crate_version, App, AppSettings, Arg, ArgMatches, SubCommand};
+use clap::{App, AppSettings, Arg, ArgMatches, crate_authors, crate_version, SubCommand};
 use failure::{bail, Error};
-use image::io::Reader as ImageReader;
 use image::{GrayImage, ImageBuffer, RgbaImage};
+use image::io::Reader as ImageReader;
 use serde::{Deserialize, Serialize};
 
-use roselib::files::zon::ZoneTileRotation;
-use roselib::files::*;
-use roselib::io::{RoseFile, RoseReader};
-
+use rose_conv::{ToObj};
 use rose_conv::{FromCsv, ToCsv};
 use rose_conv::{FromJson, ToJson};
+use roselib::files::*;
+use roselib::files::zon::ZoneTileRotation;
+use roselib::io::{RoseFile, RoseReader};
 
 const SERIALIZE_VALUES: [&'static str; 14] = [
     "him", "idx", "ifo", "lit", "stb", "stl", "wstb", "til", "tsi", "zmd", "zmo", "zms", "zon",
@@ -170,13 +170,27 @@ fn create_output_dir(out_dir: &Path) -> Result<(), Error> {
 }
 
 fn serialize(matches: &ArgMatches) -> Result<(), Error> {
-    let out_dir = Path::new(matches.value_of("out_dir").unwrap_or_default());
-    let input = Path::new(matches.value_of("input").unwrap_or_default());
-    let input_type = matches.value_of("type").unwrap_or_default();
+    let select = Path::new(matches.value_of("input").unwrap_or_default());
 
-    if !input.exists() {
-        bail!("File does not exist: {}", input.display());
+    if !select.exists() {
+        bail!("File does not exist: {}", select.display());
     }
+
+    if select.is_dir() {
+        for entry in fs::read_dir(select)? {
+            let path = entry?;
+            serialize_in(matches, &path.path());
+        }
+    } else {
+        return serialize_in(matches, select);
+    }
+
+    Ok(())
+}
+
+fn serialize_in(matches: &ArgMatches, input: &Path) -> Result<(), Error> {
+    let out_dir = Path::new(matches.value_of("out_dir").unwrap_or_default());
+    let input_type = matches.value_of("type").unwrap_or_default();
 
     let extension = input
         .extension()
@@ -198,6 +212,8 @@ fn serialize(matches: &ArgMatches) -> Result<(), Error> {
         // CSV
         "stb" => STB::from_path(&input)?.to_csv()?,
         "stl" => STL::from_path(&input)?.to_csv()?,
+        // OBJ
+        "zms" => ZMS::from_path(&input)?.to_obj()?,
         // JSON
         "him" => HIM::from_path(&input)?.to_json()?,
         "idx" => IDX::from_path(&input)?.to_json()?,
@@ -207,7 +223,6 @@ fn serialize(matches: &ArgMatches) -> Result<(), Error> {
         "tsi" => TSI::from_path(&input)?.to_json()?,
         "zmd" => ZMD::from_path(&input)?.to_json()?,
         "zmo" => ZMO::from_path(&input)?.to_json()?,
-        "zms" => ZMS::from_path(&input)?.to_json()?,
         "zon" => ZON::from_path(&input)?.to_json()?,
         "zsc" => ZSC::from_path(&input)?.to_json()?,
         "wstb" => {
@@ -223,6 +238,8 @@ fn serialize(matches: &ArgMatches) -> Result<(), Error> {
 
     let new_extension = if rose_type == "stb" || rose_type == "stl" {
         "csv"
+    } else if rose_type == "zms" {
+        "obj"
     } else {
         "json"
     };

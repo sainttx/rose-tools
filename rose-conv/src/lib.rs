@@ -8,6 +8,47 @@ use failure::{bail, Error};
 use roselib::files::stl::*;
 use roselib::files::*;
 use roselib::io::RoseFile;
+use roselib::utils::{Vector2, Vector3};
+
+pub trait ToObj {
+    fn to_obj(&self) -> Result<String, Error>;
+}
+
+impl ToObj for ZMS {
+    fn to_obj(&self) -> Result<String, Error> {
+        let mut v: Vec<Vector3<f32>> = Vec::new();
+        let mut vn: Vec<Vector3<f32>> = Vec::new();
+        let mut vt: Vec<Vector2<f32>> = Vec::new();
+
+        for vertex in &self.vertices {
+            v.push(vertex.position);
+            vn.push(vertex.normal);
+            vt.push(vertex.uv1);
+        }
+
+        let mut data = String::new();
+        data.push_str(&format!("o {}\r\n", self.identifier));
+
+        for v in v {
+            data.push_str(&format!("v {:.4} {:.4} {:.4}\r\n", v.x, v.y, v.z));
+        }
+        for vn in vn {
+            data.push_str(&format!("vn {:.4} {:.4} {:.4}\r\n", vn.x, vn.y, vn.z));
+        }
+        for vt in vt {
+            data.push_str(&format!("vt {:.4} {:.4}\r\n", vt.x, 1.0 - vt.y));
+        }
+        data.push_str("s 1"); // smoothing
+        for i in &self.indices {
+            let x = i.x + 1;
+            let y = i.y + 1;
+            let z = i.z + 1;
+            data.push_str(&format!("f {}/{}/{} {}/{}/{} {}/{}/{}\r\n", x, x, x, y, y, y, z, z, z));
+        }
+
+        return Ok(data)
+    }
+}
 
 pub trait ToCsv {
     fn to_csv(&self) -> Result<String, Error>;
